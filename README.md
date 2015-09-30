@@ -1,2 +1,1 @@
-# decode_ss
-decode_ss
+#ss_research
