@@ -68,6 +68,7 @@ class Manager(object):
             exit(1)
         self._loop.add(self._control_socket,
                        eventloop.POLL_IN, self)
+        # 每隔 EventLoop.TIMEOUT_PRECISION 秒调用一次 self.handle_periodic
         self._loop.add_periodic(self.handle_periodic)
 
         port_password = config['port_password']

@@ -228,6 +228,7 @@ class EventLoop(object):
         self._impl.unregister(fd)
 
     # 注册周期事件
+    # 实际上周期事件并没有用到事件队列
     def add_periodic(self, callback):
         self._periodic_callbacks.append(callback)
 
@@ -280,7 +281,9 @@ class EventLoop(object):
                     except (OSError, IOError) as e:
                         shell.print_exception(e)
             now = time.time()
+            # 如果 asap 或者 距离上次事件相差大于 TIMEOUT_PRECISION，就进行周期回调
             if asap or now - self._last_time >= TIMEOUT_PRECISION:
+                # 逐个回调
                 for callback in self._periodic_callbacks:
                     callback()
                 self._last_time = now
