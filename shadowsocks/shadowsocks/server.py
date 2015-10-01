@@ -72,12 +72,15 @@ def main():
     tcp_servers = []
     udp_servers = []
 
+    # 如果设置了 dns 服务器
     if 'dns_server' in config:  # allow override settings in resolv.conf
         dns_resolver = asyncdns.DNSResolver(config['dns_server'])
     else:
         dns_resolver = asyncdns.DNSResolver()
 
+    # 取出服务端口和其密码，当设置中不开启 port_password 时，也会退化到使用 port_password，此时 port_password 为单元素列表
     port_password = config['port_password']
+    # TODO 为什么要删除
     del config['port_password']
     for port, password in port_password.items():
         a_config = config.copy()
