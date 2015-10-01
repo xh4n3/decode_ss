@@ -82,20 +82,28 @@ class KqueueLoop(object):
             # 当该 fd 可写时返回
             events.append(select.kevent(fd, select.KQ_FILTER_WRITE, flags))
         for e in events:
-            # 一个一个事件添加到 kqueue 中，0 为 maxevent
+            # 一个一个事件添加到 kqueue 中
+            # 0 为 maxevent，此时 control 会直接返回
             self._kqueue.control([e], 0)
 
     def poll(self, timeout):
         if timeout < 0:
             timeout = None  # kqueue behaviour
+        # 从 kqueue 中取事件，单次取出的最大事件数由 MAX_EVENTS 规定，如果没有设置 timeout，
+        # 当 timeout 小于零时，timeout 被设置为 none， control 会一直等待事件的到来，表现为阻塞
         events = self._kqueue.control(None, KqueueLoop.MAX_EVENTS, timeout)
+        # TODO 新技巧 GET!
+        # defaultdict 可以用于生成有默认值的字典
+        # 所以无需每次判断 if key in dict; dict[key] = defaultvalue
         results = defaultdict(lambda: POLL_NULL)
         for e in events:
+            # ident 就是 fd
             fd = e.ident
             if e.filter == select.KQ_FILTER_READ:
                 results[fd] |= POLL_IN
             elif e.filter == select.KQ_FILTER_WRITE:
                 results[fd] |= POLL_OUT
+        # 返回元组的列表，每个元组由键和值组成
         return results.items()
 
     # 注册事件
@@ -197,6 +205,9 @@ class EventLoop(object):
     # 等待事件
     def poll(self, timeout=None):
         events = self._impl.poll(timeout)
+        # events 是元组列表，[(fd1, mode1), (fd2, mode2)]
+        # 返回为 [(f, fd, event), ]
+        # 其中 event 以 POLL_IN 这类标记
         return [(self._fdmap[fd][0], fd, event) for fd, event in events]
 
     # 注册事件
@@ -234,17 +245,21 @@ class EventLoop(object):
         self._stopping = True
 
     # 启动事件循环
+    # 使用事件先将事件注册，然后再调用此 run 方法
     def run(self):
         events = []
         while not self._stopping:
+            # asap As Soon As Possible 尽快处理
             asap = False
             try:
+                # 获取事件，返回给 events
                 events = self.poll(TIMEOUT_PRECISION)
             except (OSError, IOError) as e:
                 if errno_from_exception(e) in (errno.EPIPE, errno.EINTR):
                     # EPIPE: Happens when the client closes the connection
                     # EINTR: Happens when received a signal
                     # handles them as soon as possible
+                    # 如果客户端断开连接或接收到中断，则设置尽快处理
                     asap = True
                     logging.debug('poll:%s', e)
                 else:
@@ -252,12 +267,15 @@ class EventLoop(object):
                     import traceback
                     traceback.print_exc()
                     continue
-
+            # 依次解析 events 中每个事件
             for sock, fd, event in events:
+                # 根据 _fdmap 找出原有 handler
                 handler = self._fdmap.get(fd, None)
                 if handler is not None:
+                    # 如果 handler 非空，取出元组 (f, handler) 中 handler
                     handler = handler[1]
                     try:
+                        # hanlder 为实例本身，这里调用了实例的 handle_event 方法
                         handler.handle_event(sock, fd, event)
                     except (OSError, IOError) as e:
                         shell.print_exception(e)
