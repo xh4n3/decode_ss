@@ -64,12 +64,21 @@ class KqueueLoop(object):
         self._kqueue = select.kqueue()
         self._fds = {}
 
+    # 用于修改 kqueue 中的事件
+    # register self._control(fd, mode, select.KQ_EV_ADD)
+    # unregister self._control(fd, self._fds[fd], select.KQ_EV_DELETE)
     def _control(self, fd, mode, flags):
         events = []
-        # mode 取和
+        # 用与运算判断动作，register 调用的时候 mode 为 POLL_IN
         if mode & POLL_IN:
-            events.append(select.kevent(fd, select.KQ_FILTER_READ, flags))
+            # KQ_FILTER_READ
+            # Takes a descriptor and returns whenever there is data available to read
+            # 当有关于此 fd 的新数据可读时返回
+            events.append(select.kevent(fd, select., flags))
         if mode & POLL_OUT:
+            # KQ_FILTER_WRITE
+            # Takes a descriptor and returns whenever there is data available to write
+            # 当该 fd 可写时返回
             events.append(select.kevent(fd, select.KQ_FILTER_WRITE, flags))
         for e in events:
             self._kqueue.control([e], 0)
@@ -88,11 +97,19 @@ class KqueueLoop(object):
                 results[fd] |= POLL_OUT
         return results.items()
 
+    # 注册事件
+    # 也是对添加事件的抽象
     def register(self, fd, mode):
+        # _fds 字典以 fd 为键，mode 为值
         self._fds[fd] = mode
+        # KQ_EV_ADD 为添加事件
+        # 以 Manager 中添加为例，此处执行代码为:
+        # self._control(socket, POLL_IN, KQ_EV_ADD)
         self._control(fd, mode, select.KQ_EV_ADD)
 
+    # 删除事件
     def unregister(self, fd):
+        # 调用 _control 来删除事件，同时删除 _fds 中对应项
         self._control(fd, self._fds[fd], select.KQ_EV_DELETE)
         del self._fds[fd]
 
@@ -148,6 +165,10 @@ class EventLoop(object):
     """
     EventLoop 是对 SelectLoop，EpollLoop 和 KqueueLoop 的抽象
     在 linux 系统中会采用 epoll，unix/BSD 中采用 kqueue，退而选 select，否则退出
+
+    Manager 中添加事件时调用：
+    self._loop.add(self._control_socket,
+                       eventloop.POLL_IN, self)
     """
     def __init__(self):
         if hasattr(select, 'epoll'):
@@ -175,8 +196,13 @@ class EventLoop(object):
 
     # 注册事件
     def add(self, f, mode, handler):
+        # f 可以为 socket
+        # mode 可以为 POLL_IN
+        # handler 可以为 self
         fd = f.fileno()
+        # 在该实例中存储以文件描述符为键，文件对象和 handler 的元祖为值的字典
         self._fdmap[fd] = (f, handler)
+        # 在 fdmap 中存储后注册该文件描述符和事件类型
         self._impl.register(fd, mode)
 
     # 删除事件
