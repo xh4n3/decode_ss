@@ -56,6 +56,7 @@ EVENT_NAMES = {
 TIMEOUT_PRECISION = 10
 
 # Kqueue 适用于 BSD
+# https://developer.apple.com/library/mac/documentation/Darwin/Reference/ManPages/man2/kqueue.2.html
 class KqueueLoop(object):
 
     MAX_EVENTS = 1024
@@ -74,15 +75,15 @@ class KqueueLoop(object):
             # KQ_FILTER_READ
             # Takes a descriptor and returns whenever there is data available to read
             # 当有关于此 fd 的新数据可读时返回
-            events.append(select.kevent(fd, select., flags))
+            events.append(select.kevent(fd, select.KQ_FILTER_READ, flags))
         if mode & POLL_OUT:
             # KQ_FILTER_WRITE
             # Takes a descriptor and returns whenever there is data available to write
             # 当该 fd 可写时返回
             events.append(select.kevent(fd, select.KQ_FILTER_WRITE, flags))
         for e in events:
+            # 一个一个事件添加到 kqueue 中，0 为 maxevent
             self._kqueue.control([e], 0)
-
 
     def poll(self, timeout):
         if timeout < 0:
@@ -104,15 +105,19 @@ class KqueueLoop(object):
         self._fds[fd] = mode
         # KQ_EV_ADD 为添加事件
         # 以 Manager 中添加为例，此处执行代码为:
+        # _fds = {'socket': POLL_IN}
         # self._control(socket, POLL_IN, KQ_EV_ADD)
         self._control(fd, mode, select.KQ_EV_ADD)
 
     # 删除事件
     def unregister(self, fd):
         # 调用 _control 来删除事件，同时删除 _fds 中对应项
+        # 以 Manager 中添加为例，此处执行代码为：
+        # self._control(fd, POLL_IN, select.KQ_EV_DELETE)
         self._control(fd, self._fds[fd], select.KQ_EV_DELETE)
         del self._fds[fd]
 
+    # 更改事件，先删除原有事件再注册新事件
     def modify(self, fd, mode):
         self.unregister(fd)
         self.register(fd, mode)
