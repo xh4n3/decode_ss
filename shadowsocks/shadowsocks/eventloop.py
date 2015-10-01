@@ -55,7 +55,7 @@ EVENT_NAMES = {
 # we check timeouts every TIMEOUT_PRECISION seconds
 TIMEOUT_PRECISION = 10
 
-
+# Kqueue 适用于 BSD
 class KqueueLoop(object):
 
     MAX_EVENTS = 1024
@@ -103,7 +103,7 @@ class KqueueLoop(object):
     def close(self):
         self._kqueue.close()
 
-
+# 适用于大部分操作系统
 class SelectLoop(object):
 
     def __init__(self):
@@ -145,6 +145,10 @@ class SelectLoop(object):
 
 
 class EventLoop(object):
+    """
+    EventLoop 是对 SelectLoop，EpollLoop 和 KqueueLoop 的抽象
+    在 linux 系统中会采用 epoll，unix/BSD 中采用 kqueue，退而选 select，否则退出
+    """
     def __init__(self):
         if hasattr(select, 'epoll'):
             self._impl = select.epoll()
@@ -164,33 +168,41 @@ class EventLoop(object):
         self._stopping = False
         logging.debug('using event model: %s', model)
 
+    # 等待事件
     def poll(self, timeout=None):
         events = self._impl.poll(timeout)
         return [(self._fdmap[fd][0], fd, event) for fd, event in events]
 
+    # 注册事件
     def add(self, f, mode, handler):
         fd = f.fileno()
         self._fdmap[fd] = (f, handler)
         self._impl.register(fd, mode)
 
+    # 删除事件
     def remove(self, f):
         fd = f.fileno()
         del self._fdmap[fd]
         self._impl.unregister(fd)
 
+    # 注册周期事件
     def add_periodic(self, callback):
         self._periodic_callbacks.append(callback)
 
+    # 删除周期事件
     def remove_periodic(self, callback):
         self._periodic_callbacks.remove(callback)
 
+    # 修改已注册事件
     def modify(self, f, mode):
         fd = f.fileno()
         self._impl.modify(fd, mode)
 
+    # 停止事件循环
     def stop(self):
         self._stopping = True
 
+    # 启动事件循环
     def run(self):
         events = []
         while not self._stopping:
@@ -229,6 +241,7 @@ class EventLoop(object):
 
 
 # from tornado
+# 从 Python 返回的 Exception 提取 errno
 def errno_from_exception(e):
     """Provides the errno from an Exception object.
 
@@ -247,6 +260,7 @@ def errno_from_exception(e):
         return None
 
 
+# 获取 socket 错误
 # from tornado
 def get_sock_error(sock):
     error_number = sock.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
