@@ -12,10 +12,11 @@ Features
 Documentation
 -------------
 
-* TCP Fast Open Implementation and Background *tcprelay.py*
+* TCP Fast Open Implementation and Background in *tcprelay.py*
 
 License
 -------
 
-Shadowsocks under Apache License
-Comments under CC BY-NC-SA 4.0
+- Shadowsocks under Apache License
+
+- Comments under CC BY-NC-SA 4.0
