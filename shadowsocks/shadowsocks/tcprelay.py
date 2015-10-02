@@ -622,6 +622,7 @@ class TCPRelay(object):
             except socket.error:
                 logging.error('warning: fast open is not available')
                 self._config['fast_open'] = False
+        # 此处 1024 为 backlog，同时支持的连接数
         server_socket.listen(1024)
         self._server_socket = server_socket
         self._stat_callback = stat_callback
@@ -632,6 +633,7 @@ class TCPRelay(object):
         if self._closed:
             raise Exception('already closed')
         self._eventloop = loop
+        # 加入到事件队列中
         self._eventloop.add(self._server_socket,
                             eventloop.POLL_IN | eventloop.POLL_ERR, self)
         self._eventloop.add_periodic(self.handle_periodic)
@@ -697,6 +699,7 @@ class TCPRelay(object):
 
     def handle_event(self, sock, fd, event):
         # handle events and dispatch to handlers
+        # 由 eventloop 触发，返回 socket， fd 和 event
         if sock:
             logging.log(shell.VERBOSE_LEVEL, 'fd %d %s', fd,
                         eventloop.EVENT_NAMES.get(event, event))
@@ -706,7 +709,9 @@ class TCPRelay(object):
                 raise Exception('server_socket error')
             try:
                 logging.debug('accept')
+                # 建立新连接
                 conn = self._server_socket.accept()
+                # 交给 TCP 转发类
                 TCPRelayHandler(self, self._fd_to_handlers,
                                 self._eventloop, conn[0], self._config,
                                 self._dns_resolver, self._is_local)
@@ -729,6 +734,7 @@ class TCPRelay(object):
 
     def handle_periodic(self):
         if self._closed:
+            # 关闭 socket，删除事件队列中对应事件
             if self._server_socket:
                 self._eventloop.remove(self._server_socket)
                 self._server_socket.close()
