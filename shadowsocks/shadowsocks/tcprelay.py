@@ -616,7 +616,7 @@ class TCPRelay(object):
                 此外，FAST OPEN 可以防御反射的流量放大攻击 Amplified Reflection Attack，
                 原因是只有获取到受害者的 cookie，才能伪造一个有效的 SYN 包
                 TCP_FASTOPEN 23
-                qlen 处于 TCP_SYN_RECV 状态的请求数
+                qlen 处于 TCP_SYN_RECV 状态的请求数，5 这个数字此处比较不明觉厉
                 """
                 server_socket.setsockopt(socket.SOL_TCP, 23, 5)
             except socket.error:
