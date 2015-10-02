@@ -591,11 +591,33 @@ class TCPRelay(object):
         # 创建一个新 socket
         server_socket = socket.socket(af, socktype, proto)
         # 告诉内核允许复用处于 TIME_WAIT 状态的本地 socket
+        # http://www.gnu.org/software/libc/manual/html_node/Socket_002dLevel-Options.html
         server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         server_socket.bind(sa)
         server_socket.setblocking(False)
         if config['fast_open']:
             try:
+                """
+                TCP FAST OPEN
+                http://conferences.sigcomm.org/co-next/2011/papers/1569470463.pdf
+                http://edsiper.linuxchile.cl/blog/2013/02/21/linux-tcp-fastopen-in-your-sockets/
+                此前在浏览器访问网页时，需要加载很多服务器上的文件，在与服务器的数据传输过程中，
+                有 10% 到 30% 的时间是花在三次握手上的，而传统 TCP 协议只允许在建立握手以后进行数据交换
+                FAST OPEN 提出了允许 TCP 在三次握手的时候就进行数据交互，即带着 HTTP 请求和返回内容来进行三次握手
+                在 Google 发布的这篇论文中提到，如果简简单单的允许提早数据交互是有问题的
+                在第一次握手时，浏览器发出了一个带有 GET Request 内容的 SYN 包去服务器，
+                在这种情况下，服务器要返回的 SYN/ACK 包是带有 GET Reponse 内容的，
+                如果这个包大小很大，则被利用成 DoS 攻击
+                FAST OPEN 设置了一个最长16字节的 TFO Cookie，这个 Cookie 是由服务器根据请求者 ip 加密以后生成的，
+                用于握手以及握手结束以后的 ip 来源验证，而且这个 cookie 也是被服务器定时清理的。
+                当 cookie 验证失败以后，则协议会退化到普通 TCP 三次握手，即在握手过程中不进行数据交互。
+                由于客户端在 SYN/ACK 包中可以获得一个有效的 cookie， 那么当请求的客户端越来越多的时候，
+                服务器可能出现要维护的 cookie 太多的问题，此时 FAST OPEN 采用了防御 SYN 攻击的方法
+                此外，FAST OPEN 可以防御反射的流量放大攻击 Amplified Reflection Attack，
+                原因是只有获取到受害者的 cookie，才能伪造一个有效的 SYN 包
+                TCP_FASTOPEN 23
+                qlen 处于 TCP_SYN_RECV 状态的请求数
+                """
                 server_socket.setsockopt(socket.SOL_TCP, 23, 5)
             except socket.error:
                 logging.error('warning: fast open is not available')

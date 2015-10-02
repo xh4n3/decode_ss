@@ -1,6 +1,21 @@
-## decode_ss
+decode_ss
+===========
 
-### Detailed comments included in shadowsocks source files.
+For study only.
 
-### Technical tests are in temp folder.
+Features
+--------
 
+- Detailed comments
+- Technical tests
+
+Documentation
+-------------
+
+* TCP Fast Open Implementation and Background *tcprelay.py*
+
+License
+-------
+
+Shadowsocks under Apache License
+Comments under CC BY-NC-SA 4.0
