@@ -82,7 +82,9 @@ def main():
     port_password = config['port_password']
     # TODO 为什么要删除
     del config['port_password']
+    # 循环每一对端口和密码
     for port, password in port_password.items():
+        # dict.copy() 创建了一个新的字典对象，内容一样
         a_config = config.copy()
         a_config['server_port'] = int(port)
         a_config['password'] = password

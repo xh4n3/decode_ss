@@ -563,21 +563,34 @@ class TCPRelay(object):
         self._timeout_offset = 0   # last checked position for timeout
         self._handler_to_timeouts = {}  # key: handler value: index in timeouts
 
+        # 用于客户端和服务端复用
         if is_local:
             listen_addr = config['local_address']
             listen_port = config['local_port']
         else:
+            # 作为服务器使用时，监听端口为服务端口
             listen_addr = config['server']
             listen_port = config['server_port']
         self._listen_port = listen_port
-
+        """
+        socket.getaddrinfo(host, port[, family[, socktype[, proto[, flags]]]])
+        family 可取 AF_UNIX（用于 UNIX 中进程间通信），AF_INET（IPv4 的 TCP，UDP 协议），AF_INET6（IPv6 协议）
+        family 取 0 时，为兼容所有类型
+        http://man7.org/linux/man-pages/man2/socket.2.html
+        SOCK_STREAM TCP
+        SOCK_DGRAM UDP
+        """
         addrs = socket.getaddrinfo(listen_addr, listen_port, 0,
                                    socket.SOCK_STREAM, socket.SOL_TCP)
         if len(addrs) == 0:
             raise Exception("can't get addrinfo for %s:%d" %
                             (listen_addr, listen_port))
+        # addrs 为 (family, socktype, proto, canonname, sockaddr) 的列表
+        # 比如 [(2, 1, 6, '', ('93.184.216.34', 80))]
         af, socktype, proto, canonname, sa = addrs[0]
+        # 创建一个新 socket
         server_socket = socket.socket(af, socktype, proto)
+        # 告诉内核允许复用处于 TIME_WAIT 状态的本地 socket
         server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         server_socket.bind(sa)
         server_socket.setblocking(False)

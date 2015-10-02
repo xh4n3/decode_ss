@@ -246,6 +246,8 @@ STATUS_IPV4 = 0
 STATUS_IPV6 = 1
 
 
+# DNS 解析器
+# server.py 中读取配置后调用该类 __init__ 方法
 class DNSResolver(object):
 
     def __init__(self, server_list=None):
@@ -257,10 +259,13 @@ class DNSResolver(object):
         self._cache = lru_cache.LRUCache(timeout=300)
         self._sock = None
         if server_list is None:
+            # 如果没有指定 dns 服务器，则读取 /etc/resolv.conf
             self._servers = None
             self._parse_resolv()
         else:
+            # 如果配置中设置了 dns server
             self._servers = server_list
+        # 获取了 dns 服务器后，就读取本地 hosts 文件了
         self._parse_hosts()
         # TODO monitor hosts change and reload hosts
         # TODO parse /etc/gai.conf and follow its rules
@@ -283,6 +288,7 @@ class DNSResolver(object):
                                     self._servers.append(server)
         except IOError:
             pass
+        # 如果没有找到 dns server，则采用 google dns, 放在 self._servers 中
         if not self._servers:
             self._servers = ['8.8.4.4', '8.8.8.8']
 
@@ -303,6 +309,7 @@ class DNSResolver(object):
                                 if hostname:
                                     self._hosts[hostname] = ip
         except IOError:
+            # 如果读取失败，那就只加一条 localhost 的 hosts 记录
             self._hosts['localhost'] = '127.0.0.1'
 
     def add_to_loop(self, loop):
