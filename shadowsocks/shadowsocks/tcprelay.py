@@ -667,11 +667,13 @@ class TCPRelay(object):
         # tornado's timeout memory management is more flexible than we need
         # we just need a sorted last_activity queue and it's faster than heapq
         # in fact we can do O(1) insertion/remove so we invent our own
+        # _timeouts 其实是一个列表
         if self._timeouts:
             logging.log(shell.VERBOSE_LEVEL, 'sweeping timeouts')
             now = time.time()
             length = len(self._timeouts)
             pos = self._timeout_offset
+            # 依次循环 _timeouts
             while pos < length:
                 handler = self._timeouts[pos]
                 if handler:
