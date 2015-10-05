@@ -40,12 +40,15 @@ CMD_BIND = 2
 CMD_UDP_ASSOCIATE = 3
 
 # for each opening port, we have a TCP Relay
+# 每个服务端口对应一个 TCPRelay 实例
 
 # for each connection, we have a TCP Relay Handler to handle the connection
+# 每个链接对应一个 TCPRelayHandler 实例
 
 # for each handler, we have 2 sockets:
 #    local:   connected to the client
 #    remote:  connected to remote server
+# 每个 TCPRelayHandler 开启两个 socket，一个用于连接客户端，一个用于连接远程服务器
 
 # for each handler, it could be at one of several stages:
 
@@ -64,6 +67,18 @@ CMD_UDP_ASSOCIATE = 3
 # stage 4 still connecting, more data from local received
 # stage 5 remote connected, piping local and remote
 
+# 每个 TCPRelayHandler 有以下几种状态
+
+# 对于 sslocal，即 ss 客户端
+# TODO
+
+# 对于 ssserver，即 ss 服务器
+# 状态 0：跳过
+# 状态 1：接收到客户端发来的 addr 信息，进行 DNS 解析
+# 状态 3：DNS 解析完成，连接远程服务器
+# 状态 4：处于连接状态，接收客户端数据
+# 状态 5：连接到远程服务器，进行客户端和远程服务器的数据交换
+
 STAGE_INIT = 0
 STAGE_ADDR = 1
 STAGE_UDP_ASSOC = 2
@@ -78,6 +93,10 @@ STAGE_DESTROYED = -1
 #    downstream:  from server to client direction
 #                 read remote and write to local
 
+# 每个 Handler 有两个方向的数据流：
+# 上行：客户端到服务端，从本地读数据，写数据到远程
+# 下行：服务端到客户端，从远程读数据，写数据到本地
+
 STREAM_UP = 0
 STREAM_DOWN = 1
 
@@ -86,6 +105,7 @@ WAIT_STATUS_INIT = 0
 WAIT_STATUS_READING = 1
 WAIT_STATUS_WRITING = 2
 WAIT_STATUS_READWRITING = WAIT_STATUS_READING | WAIT_STATUS_WRITING
+# 每个数据流有三种等待状态，读等待，写等待，读写等待
 
 BUF_SIZE = 32 * 1024
 
