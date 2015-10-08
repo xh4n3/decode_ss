@@ -9,10 +9,22 @@ Features
 - Detailed comments
 - Technical tests
 
+Project Structure
+-----------------
+
+#### Todo.
+
 Documentation
 -------------
 
-* TCP Fast Open Implementation and Background in *tcprelay.py*
+| File          | Covers                                          | Progress |
+| ------------- | ----------------------------------------------- | -------- |
+| server.py     | SIGTERM, SIGQUIT and SIGKILL                    | *******- |
+| tcprelay.py   | TCP Fast Open Implementation and Background     | *******- |
+| daemon.py     | Pidfile: What and why?                          | *******- |
+|               | Filelock: lockf()                               |          |
+|               | Use dup() to duplicate a file descriptor        |          |
+| manager.py    |                                                 | *******- |
 
 License
 -------
