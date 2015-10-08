@@ -108,16 +108,21 @@ def main():
         signal.signal(getattr(signal, 'SIGQUIT', signal.SIGTERM),
                       child_handler)
 
+        # 中断处理函数，如果接受到键盘中断信号，则异常退出
         def int_handler(signum, _):
             sys.exit(1)
         signal.signal(signal.SIGINT, int_handler)
 
         try:
+            # 定义新事件循环
             loop = eventloop.EventLoop()
+            # 添加 dns 解析器到事件循环中
             dns_resolver.add_to_loop(loop)
+            # 批量地将所有 tcp_server 和 udp_server 加入事件循环中
             list(map(lambda s: s.add_to_loop(loop), tcp_servers + udp_servers))
-
+            # 使守护进程以设置中 user 的名义执行
             daemon.set_user(config.get('user', None))
+            # 启动事件循环
             loop.run()
         except Exception as e:
             shell.print_exception(e)
@@ -130,13 +135,16 @@ def main():
             is_child = False
             for i in range(0, int(config['workers'])):
                 r = os.fork()
+                # 如果执行这段代码的进程为子进程，输出启动信息，然后运行 run_server()
                 if r == 0:
                     logging.info('worker started')
                     is_child = True
                     run_server()
                     break
                 else:
+                    # 如果为父进程，添加到 pid 到子进程列表中
                     children.append(r)
+            # 如果是父进程
             if not is_child:
                 def handler(signum, _):
                     for pid in children:
@@ -146,11 +154,13 @@ def main():
                         except OSError:  # child may already exited
                             pass
                     sys.exit()
+                # 当收到中断或者终止信号时，向每个子进程 pid 发出终止信号
                 signal.signal(signal.SIGTERM, handler)
                 signal.signal(signal.SIGQUIT, handler)
                 signal.signal(signal.SIGINT, handler)
 
                 # master
+                # 关闭所有 tcp_server，udp_server 和 dns 解析器
                 for a_tcp_server in tcp_servers:
                     a_tcp_server.close()
                 for a_udp_server in udp_servers:
@@ -158,6 +168,8 @@ def main():
                 dns_resolver.close()
 
                 for child in children:
+                    # TODO 待测试
+                    # 等待子进程结束，当子进程结束时返回
                     os.waitpid(child, 0)
         else:
             logging.warn('worker is only available on Unix/Linux')
