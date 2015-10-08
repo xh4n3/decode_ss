@@ -31,11 +31,30 @@ from shadowsocks import shell, daemon, eventloop, tcprelay, udprelay, \
 def main():
     shell.check_python()
 
-    # 读取
+    # 读取配置信息，False 表示这里是服务端运行
     config = shell.get_config(False)
 
     # TODO 临时打印配置信息
     print(config)
+    """
+    默认配置信息
+    {
+        'log-file': '/var/log/shadowsocks.log',
+        'verbose': False,
+        'local_port': 1080,
+        'workers': 1,
+        'fast_open': False,
+        'forbidden_ip': <shadowsocks.common.IPNetwork object at 0x10f4f8a10>,
+        'server': '0.0.0.0',
+        'port_password': None,
+        'server_port': None,
+        'timeout': 300,
+        'local_address': '127.0.0.1',
+        'pid-file': '/var/run/shadowsocks.pid',
+        'password': '', 必填
+        'method': 'aes-256-cfb'
+    }
+    """
 
     # 根据配置对守护进程进行操作，不开启 daemon 时此处可忽略
     daemon.daemon_exec(config)
@@ -55,6 +74,8 @@ def main():
                          'will be ignored')
     else:
         config['port_password'] = {}
+        # TODO 待确认
+        # 此处应为 server_port = config.get('server_port', 8388) 以允许默认端口启动
         server_port = config.get('server_port', None)
         if server_port:
             if type(server_port) == list:
@@ -62,6 +83,7 @@ def main():
                     config['port_password'][a_server_port] = config['password']
             else:
                 config['port_password'][str(server_port)] = config['password']
+    print(config)
 
     # 如果获取到 manager_address，则启动管理进程
     if config.get('manager_address', 0):

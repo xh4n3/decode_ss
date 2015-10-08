@@ -138,6 +138,7 @@ class TCPRelayHandler(object):
             self._forbidden_iplist = config['forbidden_ip']
         else:
             self._forbidden_iplist = None
+        #  如果是 sslocal 来运行的，就先随机选一台服务器
         if is_local:
             self._chosen_server = self._get_a_server()
         fd_to_handlers[local_sock.fileno()] = self
