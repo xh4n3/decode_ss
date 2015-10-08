@@ -569,6 +569,8 @@ class TCPRelayHandler(object):
 
 
 class TCPRelay(object):
+    # server.py 调用
+    # tcprelay.TCPRelay(a_config, dns_resolver, False)
     def __init__(self, config, dns_resolver, is_local, stat_callback=None):
         self._config = config
         self._is_local = is_local

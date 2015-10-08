@@ -90,6 +90,7 @@ def main():
         a_config['password'] = password
         logging.info("starting server at %s:%d" %
                      (a_config['server'], int(port)))
+        # 用每一对端口和密码产生一对 TCP 和 UDP 的 Relay 实例
         tcp_servers.append(tcprelay.TCPRelay(a_config, dns_resolver, False))
         udp_servers.append(udprelay.UDPRelay(a_config, dns_resolver, False))
 
@@ -98,6 +99,12 @@ def main():
             logging.warn('received SIGQUIT, doing graceful shutting down..')
             list(map(lambda s: s.close(next_tick=True),
                      tcp_servers + udp_servers))
+        """
+        getattr(object, name[, default]) 如果 siganl.SIGQUIT 不存在，即注册 SIGTERM 事件
+        SIGTERM 终止进程，但终止前会允许 handler 被执行，SIGKILL 不会
+        SIGQUIT 在 SIGTERM 的基础上，还生成了一份 core dump 文件记录了进程信息
+        http://programmergamer.blogspot.jp/2013/05/clarification-on-sigint-sigterm-sigkill.html
+        """
         signal.signal(getattr(signal, 'SIGQUIT', signal.SIGTERM),
                       child_handler)
 
