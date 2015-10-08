@@ -63,7 +63,7 @@ def main():
             else:
                 config['port_password'][str(server_port)] = config['password']
 
-    # TODO 如果获取到 manager_address，则启动管理进程，先跳过不看
+    # 如果获取到 manager_address，则启动管理进程
     if config.get('manager_address', 0):
         logging.info('entering manager mode')
         manager.run(config)
