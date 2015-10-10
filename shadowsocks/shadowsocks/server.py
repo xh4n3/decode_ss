@@ -183,6 +183,7 @@ def main():
 
                 # master
                 # 关闭所有 tcp_server，udp_server 和 dns 解析器
+                # close 方法从 eventloop 中移除了每个注册的事件
                 for a_tcp_server in tcp_servers:
                     a_tcp_server.close()
                 for a_udp_server in udp_servers:
