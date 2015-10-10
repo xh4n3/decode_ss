@@ -35,6 +35,10 @@ TIMEOUTS_CLEAN_SIZE = 512
 MSG_FASTOPEN = 0x20000000
 
 # SOCKS command definition
+"""
+Socks5 协议
+https://www.ietf.org/rfc/rfc1928.txt
+"""
 CMD_CONNECT = 1
 CMD_BIND = 2
 CMD_UDP_ASSOCIATE = 3
@@ -142,6 +146,7 @@ class TCPRelayHandler(object):
         #  如果是 sslocal 来运行的，就先随机选一台服务器
         if is_local:
             self._chosen_server = self._get_a_server()
+        # 这里直接对 TCPRelay 实例中的 _fd_to_handlers 赋值
         fd_to_handlers[local_sock.fileno()] = self
         local_sock.setblocking(False)
         local_sock.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
@@ -154,12 +159,17 @@ class TCPRelayHandler(object):
     def __hash__(self):
         # default __hash__ is id / 16
         # we want to eliminate collisions
+        """
+        CPython 中默认的 __hash__ 是 id(entry)/16
+        为了减少冲突，这里直接采用 id，而默认的 id 是采用了对象在内存中的地址
+        """
         return id(self)
 
     @property
     def remote_address(self):
         return self._remote_address
 
+    # 作为本地客户端运行时，随机选择一台服务器和服务端口
     def _get_a_server(self):
         server = self._config['server']
         server_port = self._config['server_port']
@@ -507,17 +517,35 @@ class TCPRelayHandler(object):
             logging.error(eventloop.get_sock_error(self._remote_sock))
         self.destroy()
 
+    # 事件分发器
     def handle_event(self, sock, event):
         # handle all events in this handler and dispatch them to methods
         if self._stage == STAGE_DESTROYED:
             logging.debug('ignore handle_event: destroyed')
             return
         # order is important
+        """
+        SSLOCAL
+            LOCAL_SOCK
+                READ    _on_local_read()    从客户端发来的 SOCKS5 数据
+                WRITE   _on_local_write()   通过 SOCKS5 协议往客户端发回数据
+            REMOTE_SOCK
+                READ    _on_remote_read()   从 SSSERVER 读加密后的数据
+                WRITE   _on_remote_write()  往 SSSERVER 写加密后的数据
+        SSSERVER:
+            LOCAL_SOCK
+                READ    _on_local_read()    从 SSLOCAL 读加密后的数据
+                WRITE   _on_local_write()   往 SSSERVER 写加密后的数据
+            REMOTE_SOCK
+                READ    _on_remote_read()   从远程服务器读网页数据
+                WRITE   _on_remote_write()  往远程服务器发送请求
+        """
         if sock == self._remote_sock:
             if event & eventloop.POLL_ERR:
                 self._on_remote_error()
                 if self._stage == STAGE_DESTROYED:
                     return
+            # POLL_HUP 已经断开，可能还有数据可读 POLL_IN 有数据可读
             if event & (eventloop.POLL_IN | eventloop.POLL_HUP):
                 self._on_remote_read()
                 if self._stage == STAGE_DESTROYED:
