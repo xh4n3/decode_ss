@@ -594,6 +594,7 @@ class TCPRelay(object):
         self._timeouts = []  # a list for all the handlers
         # we trim the timeouts once a while
         self._timeout_offset = 0   # last checked position for timeout
+        # { handler: pos }
         self._handler_to_timeouts = {}  # key: handler value: index in timeouts
 
         # 用于客户端和服务端复用
@@ -675,6 +676,14 @@ class TCPRelay(object):
         index = self._handler_to_timeouts.get(hash(handler), -1)
         if index >= 0:
             # delete is O(n), so we just set it to None
+            """
+            Python 的时间复杂度
+            对字典的删除操作的平均时间复杂度为 O(1)，这是在散列无冲突的情况下估算的
+            https://wiki.python.org/moin/TimeComplexity
+            http://www.orangecube.net/python-time-complexity
+            此处用到了 Python 内置的 hash 函数，其实是调用了实例中的 __hash__ 方法
+            此处由于 TCPRelayHandler 为新式类，本身就具有 __hash__ 方法，否则当对象为旧式类
+            """
             self._timeouts[index] = None
             del self._handler_to_timeouts[hash(handler)]
 
@@ -699,22 +708,27 @@ class TCPRelay(object):
         length = len(self._timeouts)
         # 添加该 handler 到 _timeouts 列表中
         self._timeouts.append(handler)
+        # 将 _timeouts 长度存入 hash(handler) 的键中
         self._handler_to_timeouts[hash(handler)] = length
 
     def _sweep_timeout(self):
         # tornado's timeout memory management is more flexible than we need
         # we just need a sorted last_activity queue and it's faster than heapq
         # in fact we can do O(1) insertion/remove so we invent our own
-        # _timeouts 其实是一个列表
+        # _timeouts 其实是一个列表，保存了很多 handler，指向 TCPRelayHandler 实例
+        # 只有 _timeouts 非空的时候才进行操作
         if self._timeouts:
             logging.log(shell.VERBOSE_LEVEL, 'sweeping timeouts')
             now = time.time()
             length = len(self._timeouts)
+            # _timeout_offset 初始值为 0，记录上次检测到的位置
             pos = self._timeout_offset
-            # 依次循环 _timeouts
+            # 从上次更新到的位置开始循环
             while pos < length:
                 handler = self._timeouts[pos]
+                # 取出 handler，如果空则跳过
                 if handler:
+                    # 如果没有超时，退出该循环，否则删除 TCPRelayHandler 实例，并在 _timeouts 列表中标记为空
                     if now - handler.last_activity < self._timeout:
                         break
                     else:
@@ -728,10 +742,15 @@ class TCPRelay(object):
                         pos += 1
                 else:
                     pos += 1
+            # 每次最多删除 TIMEOUTS_CLEAN_SIZE 个超时的 TCPRelayHandler 实例
+            # 或者 当前 pos 大于 _timeouts 的长度的一半
+            # length >> 1 位操作符 等效于 length/2
             if pos > TIMEOUTS_CLEAN_SIZE and pos > length >> 1:
                 # clean up the timeout queue when it gets larger than half
                 # of the queue
+                # 相当于删除已经检测过的 handlers
                 self._timeouts = self._timeouts[pos:]
+                # 将 _handler_to_timeouts 中每一项都减去 pos, 然后设置 pos 为 0
                 for key in self._handler_to_timeouts:
                     self._handler_to_timeouts[key] -= pos
                 pos = 0
@@ -783,6 +802,7 @@ class TCPRelay(object):
             if not self._fd_to_handlers:
                 logging.info('stopping')
                 self._eventloop.stop()
+        # 定时检测一下 timeouts
         self._sweep_timeout()
 
     def close(self, next_tick=False):
