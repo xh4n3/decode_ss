@@ -113,6 +113,7 @@ BUF_SIZE = 32 * 1024
 class TCPRelayHandler(object):
     def __init__(self, server, fd_to_handlers, loop, local_sock, config,
                  dns_resolver, is_local):
+        # server 为 TCPHandler 实例
         self._server = server
         self._fd_to_handlers = fd_to_handlers
         self._loop = loop
@@ -147,6 +148,7 @@ class TCPRelayHandler(object):
         loop.add(local_sock, eventloop.POLL_IN | eventloop.POLL_ERR,
                  self._server)
         self.last_activity = 0
+        # 调用 TCPHandler 的 update_activity() 方法
         self._update_activity()
 
     def __hash__(self):
@@ -171,6 +173,11 @@ class TCPRelayHandler(object):
     def _update_activity(self, data_len=0):
         # tell the TCP Relay we have activities recently
         # else it will think we are inactive and timed out
+        """
+        在 TCPRelayHandler 初始化时被调用一次，data_len = 0
+        调用 TCPHandler 中的 update_activity() 方法
+        用于通知 TCPHandler 这个 TCPRelayHandler 还有处于活跃状态，防止被 timeout
+        """
         self._server.update_activity(self, data_len)
 
     def _update_stream(self, stream, status):
@@ -570,8 +577,11 @@ class TCPRelayHandler(object):
 
 
 class TCPRelay(object):
-    # server.py 调用
-    # tcprelay.TCPRelay(a_config, dns_resolver, False)
+    """
+    stat_callback 用于监测该 TCPRelay 通信状态，在 Manager 类中被调用
+    server.py 调用，默认没有 stat_callback
+    tcprelay.TCPRelay(a_config, dns_resolver, False)
+    """
     def __init__(self, config, dns_resolver, is_local, stat_callback=None):
         self._config = config
         self._is_local = is_local
@@ -579,7 +589,7 @@ class TCPRelay(object):
         self._closed = False
         self._eventloop = None
         self._fd_to_handlers = {}
-
+        # 配置文件中设置的超时时间
         self._timeout = config['timeout']
         self._timeouts = []  # a list for all the handlers
         # we trim the timeouts once a while
@@ -668,21 +678,26 @@ class TCPRelay(object):
             self._timeouts[index] = None
             del self._handler_to_timeouts[hash(handler)]
 
+    # 此处 handler 为 TCPRelayHandler 实例
     def update_activity(self, handler, data_len):
+        # 如果有数据流，则通知 _stat_callback 记录数据流量
         if data_len and self._stat_callback:
             self._stat_callback(self._listen_port, data_len)
 
         # set handler to active
         now = int(time.time())
+        # 每隔 TIMEOUT_PRECISION 秒，默认 10 秒，监测一次 timeout，此处距离上次更新太近，所以直接返回
         if now - handler.last_activity < eventloop.TIMEOUT_PRECISION:
             # thus we can lower timeout modification frequency
             return
+        # 更新 last_activity 字段
         handler.last_activity = now
         index = self._handler_to_timeouts.get(hash(handler), -1)
         if index >= 0:
             # delete is O(n), so we just set it to None
             self._timeouts[index] = None
         length = len(self._timeouts)
+        # 添加该 handler 到 _timeouts 列表中
         self._timeouts.append(handler)
         self._handler_to_timeouts[hash(handler)] = length
 

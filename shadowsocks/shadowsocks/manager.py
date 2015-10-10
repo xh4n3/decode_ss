@@ -150,6 +150,7 @@ class Manager(object):
             logging.error(e)
             return None
 
+    # 用于每个端口数据流量监测
     def stat_callback(self, port, data_len):
         self._statistics[port] += data_len
 
