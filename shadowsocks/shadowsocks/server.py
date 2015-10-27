@@ -102,7 +102,7 @@ def main():
 
     # 取出服务端口和其密码，当设置中不开启 port_password 时，也会退化到使用 port_password，此时 port_password 为单元素列表
     port_password = config['port_password']
-    # TODO 为什么要删除
+    # 后面用 port_password 中每一项分别生成一份配置，所以 config['port_password'] 就用不着了
     del config['port_password']
     # 循环每一对端口和密码
     for port, password in port_password.items():
