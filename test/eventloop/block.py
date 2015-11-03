@@ -55,8 +55,9 @@ def test():
     s = socket(AF_INET, SOCK_STREAM)
     s.bind(("127.0.0.1", 3009))
     s.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
-    s.listen(1)
+    s.listen(5)
 
+    # This blocks the whole callback
     def handler(fd):
         cl, _ = fd.accept()
         while True:
