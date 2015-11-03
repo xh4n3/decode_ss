@@ -1,15 +1,17 @@
 from _socket import AF_INET, SOCK_STREAM, SO_REUSEADDR, SOL_SOCKET
 import select
 from socket import socket
+from threading import Thread
 
 
-class EventLoop(object):
+class KqueueEventLoop(object):
 
     KQ_FILTER_READ = select.KQ_FILTER_READ
 
     def __init__(self):
         self._fd_map = {}
         self._handler_map = {}
+        self._event_map = {}
         self.kq = select.kqueue()
         self.klist = []
         self._stop = False
@@ -29,10 +31,14 @@ class EventLoop(object):
         event = select.kevent(fd, filter=mode, flags=select.KQ_EV_ADD | select.KQ_EV_ENABLE | select.KQ_EV_CLEAR)
         self._handler_map[fd] = f
         self._fd_map[fd] = handler
+        self._event_map[fd] = event
         self.klist.append(event)
 
-    def remove(self):
-        pass
+    def remove(self, f):
+        fd = f.fileno()
+        del self._handler_map[fd]
+        del self._fd_map[fd]
+        self.klist.remove(self._event_map[fd])
 
     def add_periodic(self):
         pass
@@ -40,36 +46,33 @@ class EventLoop(object):
     def remove_periodic(self):
         pass
 
-    def modify(self):
-        pass
-
     def stop(self):
         self._stop = True
 
-    def __del__(self):
-        pass
-
 
 def test():
-    loop = EventLoop()
+    loop = KqueueEventLoop()
     s = socket(AF_INET, SOCK_STREAM)
-    s.bind(("127.0.0.1", 3009))
+    s.bind(("127.0.0.1", 3000))
     s.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
     s.listen(5)
 
-    # This blocks the whole callback
-    def handler(fd):
-        cl, _ = fd.accept()
+    def callback(f):
+        Thread(None, handler, args=(f,)).start()
+
+    def handler(f):
+        print 'INFO: New connection established.'
+        cl, _ = f.accept()
         while True:
             data = cl.recv(1024)
-            print repr(data)
             if not data:
+                print 'INFO: Connection dropped.'
+                loop.remove(cl)
                 cl.close()
-                break
-        loop.stop()
-        s.close()
+                return
+            print 'DATA: %s' % repr(data)
 
-    loop.add(s, EventLoop.KQ_FILTER_READ, handler)
+    loop.add(s, KqueueEventLoop.KQ_FILTER_READ, callback)
     loop.run()
 
 if __name__ == '__main__':

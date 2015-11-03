@@ -6,12 +6,12 @@ from time import sleep
 
 def connect():
     s = socket.socket(AF_INET, SOCK_STREAM)
-    s.connect(("127.0.0.1", 3002))
+    s.connect(("127.0.0.1", 3000))
     while True:
         s.send(b'hello_world')
         sleep(0.1)
 
-for i in range(500):
+for i in range(100):
     t = Thread(None, connect, None)
     t.setDaemon(True)
     t.start()
