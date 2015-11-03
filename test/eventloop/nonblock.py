@@ -52,7 +52,7 @@ class KqueueEventLoop(object):
 def test():
     loop = KqueueEventLoop()
     s = socket(AF_INET, SOCK_STREAM)
-    s.bind(("127.0.0.1", 3004))
+    s.bind(("127.0.0.1", 3002))
     s.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
     s.listen(5)
 
@@ -69,8 +69,8 @@ def test():
                 print 'INFO: Connection dropped.'
                 loop.remove(cl)
                 cl.close()
-            else:
-                print 'DATA: %s' % repr(data)
+                return
+            print 'DATA: %s' % repr(data)
         except Exception, e:
             print 'ERROR: %s' % repr(e)
             loop.remove(cl)
